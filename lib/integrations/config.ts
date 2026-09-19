@@ -1,22 +1,20 @@
-import { env } from "cloudflare:workers";
-
 export function integrationConfig() {
-  const mode = env.INTEGRATION_MODE === "production" ? "production" : "mock";
+  const mode = process.env.INTEGRATION_MODE === "production" ? "production" : "mock";
   return {
     mode,
-    storeUrl: env.STORE_PUBLIC_URL ?? "",
+    storeUrl: process.env.STORE_PUBLIC_URL ?? "",
     doku: {
-      baseUrl: env.DOKU_BASE_URL ?? "https://api-sandbox.doku.com",
-      clientId: env.DOKU_CLIENT_ID ?? "",
-      secretKey: env.DOKU_SECRET_KEY ?? "",
-      notificationToken: env.DOKU_NOTIFICATION_TOKEN ?? "",
+      baseUrl: process.env.DOKU_BASE_URL ?? "https://api-sandbox.doku.com",
+      clientId: process.env.DOKU_CLIENT_ID ?? "",
+      secretKey: process.env.DOKU_SECRET_KEY ?? "",
+      notificationToken: process.env.DOKU_NOTIFICATION_TOKEN ?? "",
     },
     mabang: {
-      baseUrl: env.MABANG_BASE_URL ?? "",
-      appKey: env.MABANG_APP_KEY ?? "",
-      appSecret: env.MABANG_APP_SECRET ?? "",
-      orderEndpoint: env.MABANG_ORDER_ENDPOINT ?? "",
-      webhookToken: env.MABANG_WEBHOOK_TOKEN ?? "",
+      baseUrl: process.env.MABANG_BASE_URL ?? "",
+      appKey: process.env.MABANG_APP_KEY ?? "",
+      appSecret: process.env.MABANG_APP_SECRET ?? "",
+      orderEndpoint: process.env.MABANG_ORDER_ENDPOINT ?? "",
+      webhookToken: process.env.MABANG_WEBHOOK_TOKEN ?? "",
     },
   };
 }

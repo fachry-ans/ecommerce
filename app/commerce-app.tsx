@@ -29,7 +29,15 @@ export default function CommerceApp(){
   const [view,setView]=useState<"store"|"admin">("store");
   const [query,setQuery]=useState("");
   const [category,setCategory]=useState("Semua");
-  const [cart,setCart]=useState<CartLine[]>([]);
+  const [cart,setCart]=useState<CartLine[]>(()=>{
+    if(typeof window!=="undefined"){
+      try{
+        const saved=localStorage.getItem("bns-cart-v2");
+        if(saved)return JSON.parse(saved);
+      }catch{/* ignore */}
+    }
+    return [];
+  });
   const [checkout,setCheckout]=useState(false);
   const [paid,setPaid]=useState(false);
   const [b2b,setB2b]=useState(false);
@@ -37,7 +45,6 @@ export default function CommerceApp(){
   const [selected,setSelected]=useState<Product|null>(null);
   const [orders,setOrders]=useState<OrderRecord[]>([]);
 
-  useEffect(()=>{const saved=localStorage.getItem("bns-cart-v2");if(saved)setCart(JSON.parse(saved));},[]);
   useEffect(()=>localStorage.setItem("bns-cart-v2",JSON.stringify(cart)),[cart]);
 
   const shown=useMemo(()=>{
@@ -58,16 +65,16 @@ export default function CommerceApp(){
 
   return <main className="min-h-screen bg-[#f5f8fa] text-[#14212b]">
     <Toaster position="top-center" richColors/>
-    <Header view={view} setView={setView} query={query} setQuery={setQuery} itemCount={itemCount}>
+    <Header view={view} setView={setView} query={query} setQuery={setQuery}>
       <Cart cart={cart} setCart={setCart} changeQty={changeQty} itemCount={itemCount} b2b={b2b} openCheckout={()=>setCheckout(true)}/>
     </Header>
     {view==="store"?<Storefront shown={shown} category={category} setCategory={setCategory} add={add} b2b={b2b} setB2b={setB2b} sort={sort} setSort={setSort} openProduct={setSelected} orders={orders}/>:<AdminDashboard orders={orders} setOrders={setOrders}/>}
-    {checkout&&<CheckoutModal paid={paid} cart={cart} b2b={b2b} lastOrder={orders[0]??null} close={()=>setCheckout(false)} finish={data=>{setOrders(old=>[data,...old]);setPaid(true)}} reset={()=>{setCheckout(false);setPaid(false);setCart([])}}/>}
+    {checkout&&<CheckoutModal paid={paid} cart={cart} lastOrder={orders[0]??null} close={()=>setCheckout(false)} finish={data=>{setOrders(old=>[data,...old]);setPaid(true)}} reset={()=>{setCheckout(false);setPaid(false);setCart([])}}/>}
     {selected&&<ProductModal product={selected} b2b={b2b} close={()=>setSelected(null)} add={()=>{add(selected);setSelected(null)}}/>}
   </main>;
 }
 
-function Header({view,setView,query,setQuery,itemCount,children}:{view:"store"|"admin";setView:(v:"store"|"admin")=>void;query:string;setQuery:(v:string)=>void;itemCount:number;children:ReactNode}){
+function Header({view,setView,query,setQuery,children}:{view:"store"|"admin";setView:(v:"store"|"admin")=>void;query:string;setQuery:(v:string)=>void;children:ReactNode}){
   const go=(id:string)=>{setView("store");setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:"smooth"}),0)};
   return <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-6">
     <button className="flex items-center gap-2" onClick={()=>go("home")} aria-label="BAITANDSTRIKE home"><img src="/bns-logo.jpg" alt="BAIT & STRIKE" className="h-11 w-16 rounded-lg object-contain"/><span className="hidden text-lg font-black tracking-[-.04em] md:block">BAIT<span className="text-[#3282c0]">AND</span>STRIKE</span></button>
@@ -151,7 +158,7 @@ function AdminDashboard({orders,setOrders}:{orders:OrderRecord[];setOrders:(upda
   </div>;
 }
 
-function CheckoutModal({paid,cart,b2b,lastOrder,close,finish,reset}:{paid:boolean;cart:CartLine[];b2b:boolean;lastOrder:OrderRecord|null;close:()=>void;finish:(o:OrderRecord)=>void;reset:()=>void}){
+function CheckoutModal({paid,cart,lastOrder,close,finish,reset}:{paid:boolean;cart:CartLine[];lastOrder:OrderRecord|null;close:()=>void;finish:(o:OrderRecord)=>void;reset:()=>void}){
   const [form,setForm]=useState({name:"",email:"",phone:"",address:""});
   const [error,setError]=useState("");
   const [submitting,setSubmitting]=useState(false);
@@ -162,19 +169,35 @@ function CheckoutModal({paid,cart,b2b,lastOrder,close,finish,reset}:{paid:boolea
   return <div className="fixed inset-0 z-[60] grid place-items-center bg-[#0b1924]/70 p-4"><div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">{paid?<div className="py-10 text-center"><span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-blue-100 text-[#3282c0]"><Check size={32}/></span><p className="text-xs font-black uppercase tracking-widest text-[#3282c0]">DOKU Checkout</p><h2 className="mt-2 text-2xl font-black">Order siap dibayar</h2><p className="mt-2 text-slate-500">Fondasi pembayaran sudah aktif dalam mode simulasi. Saat credential production dipasang, customer otomatis diarahkan ke halaman aman DOKU.</p><div className="mx-auto mt-6 max-w-sm rounded-2xl bg-slate-50 p-4"><span className="text-sm text-slate-500">Nomor order</span><b className="mt-1 block text-xl">{lastOrder?.id}</b><span className="mt-3 block text-sm text-slate-500">Total pembayaran</span><b className="mt-1 block text-2xl">{rupiah(amount)}</b></div><p className="mx-auto mt-4 max-w-sm text-xs text-slate-500">Simpan nomor order ini untuk melacak status Mabang dan AWB J&T di storefront.</p><button onClick={reset} className="mt-7 rounded-xl bg-[#14212b] px-6 py-3 font-bold text-white">Selesai</button></div>:<><div className="mb-6 flex justify-between"><div><p className="text-xs font-black uppercase tracking-widest text-[#3282c0]">Secure checkout</p><h2 className="mt-1 text-2xl font-black">Data Pengiriman</h2></div><button onClick={close} className="text-2xl" aria-label="Tutup">×</button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Nama lengkap *" placeholder="Nama penerima" value={form.name} onChange={v=>update("name",v)}/><Field label="Email *" placeholder="nama@email.com" value={form.email} onChange={v=>update("email",v)}/><Field label="Nomor telepon *" placeholder="08xxxxxxxxxx" value={form.phone} onChange={v=>update("phone",v)} inputMode="tel"/><div className="sm:col-span-2"><Field label="Alamat pengiriman *" placeholder="Alamat lengkap" value={form.address} onChange={v=>update("address",v)}/></div></div>{error&&<p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-600" role="alert">{error}</p>}<div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4"><div className="flex justify-between gap-4"><b className="text-[#17547f]">Ringkasan order</b><b>{cart.length} SKU · {totalUnits} unit</b></div><div className="mt-3 max-h-24 space-y-1 overflow-y-auto text-sm text-slate-600">{cart.map(x=><p key={x.id}>{x.qty}× {x.name}</p>)}</div><div className="mt-3 flex justify-between border-t border-blue-100 pt-3"><b>Total</b><b className="text-lg">{rupiah(amount)}</b></div></div><div className="mt-6"><button disabled={submitting} onClick={submit} className="w-full rounded-xl bg-[#fcdd16] px-6 py-3.5 font-black disabled:cursor-wait disabled:opacity-60">{submitting?"Menyiapkan order…":"Lanjut ke DOKU Checkout"}</button><p className="mt-3 text-center text-xs text-slate-400">Metode pembayaran dipilih pada halaman aman DOKU.</p></div></>}</div></div>;
 }
 
-function Flow(){const Arrow=({label}:{label?:string})=><div className="flex flex-col items-center py-1 text-center"><div className="h-5 w-px bg-[#3282c0]"/>{label&&<span className="my-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#17547f]">{label}</span>}<ChevronRight className="rotate-90 text-[#3282c0]" size={18}/></div>;return <div className="mx-auto max-w-lg">
-  <FlowNode title="TOKO" subtitle="Order dibuat setelah checkout DOKU"/>
-  <Arrow label="Order Sync"/>
-  <FlowNode title="MABANG ERP" subtitle="Pusat Operasional" highlight items={["Order Management","Warehouse","Pick","Pack","Generate J&T AWB","Print J&T Label","Shipping"]}/>
-  <Arrow/>
-  <FlowNode title="J&T INDONESIA" items={["AWB / Resi","Pickup","Tracking"]}/>
-  <Arrow/>
-  <FlowNode title="MABANG ERP" subtitle="Menerima data pengiriman dari J&T"/>
-  <Arrow label="Shipment / Tracking Sync"/>
-  <FlowNode title="TOKO" subtitle="Fulfillment dan resi diperbarui"/>
-  <Arrow/>
-  <FlowNode title="CUSTOMER" subtitle="Melihat status dan tracking pesanan"/>
-</div>}
+const FlowArrow = ({ label }: { label?: string }) => (
+  <div className="flex flex-col items-center py-1 text-center">
+    <div className="h-5 w-px bg-[#3282c0]" />
+    {label && (
+      <span className="my-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#17547f]">
+        {label}
+      </span>
+    )}
+    <ChevronRight className="rotate-90 text-[#3282c0]" size={18} />
+  </div>
+);
+
+function Flow() {
+  return (
+    <div className="mx-auto max-w-lg">
+      <FlowNode title="TOKO" subtitle="Order dibuat setelah checkout DOKU" />
+      <FlowArrow label="Order Sync" />
+      <FlowNode title="MABANG ERP" subtitle="Pusat Operasional" highlight items={["Order Management", "Warehouse", "Pick", "Pack", "Generate J&T AWB", "Print J&T Label", "Shipping"]} />
+      <FlowArrow />
+      <FlowNode title="J&T INDONESIA" items={["AWB / Resi", "Pickup", "Tracking"]} />
+      <FlowArrow />
+      <FlowNode title="MABANG ERP" subtitle="Menerima data pengiriman dari J&T" />
+      <FlowArrow label="Shipment / Tracking Sync" />
+      <FlowNode title="TOKO" subtitle="Fulfillment dan resi diperbarui" />
+      <FlowArrow />
+      <FlowNode title="CUSTOMER" subtitle="Melihat status dan tracking pesanan" />
+    </div>
+  );
+}
 function FlowNode({title,subtitle,items,highlight=false}:{title:string;subtitle?:string;items?:string[];highlight?:boolean}){return <div className={`rounded-2xl border p-4 ${highlight?"border-blue-300 bg-blue-50 shadow-sm":"border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-center gap-2"><b className="text-sm">{title}</b>{highlight&&<span className="rounded-full bg-[#fcdd16] px-2 py-0.5 text-[10px] font-black uppercase">Pusat operasional</span>}</div>{subtitle&&<p className="mt-1 text-xs text-slate-500">{subtitle}</p>}{items&&<ul className="mt-3 grid gap-1.5 sm:grid-cols-2">{items.map(item=><li key={item} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold"><Check size={13} className="text-emerald-600"/>{item}</li>)}</ul>}</div>}
 function InventoryRows(){return <div className="space-y-2">{products.slice(0,4).map(p=><div key={p.id} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-slate-100 p-4 sm:grid-cols-4"><b>{p.brand}</b><span className="truncate text-slate-600">{p.sku}</span><b>Stok {p.stock}</b><span className="justify-self-end rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#17547f]">{p.sold28} sales</span></div>)}</div>}
 function Field({label,placeholder,value,onChange,inputMode}:{label:string;placeholder:string;value:string;onChange:(v:string)=>void;inputMode?:"text"|"tel"}){return <label className="block text-sm font-bold">{label}<input value={value} onChange={e=>onChange(e.target.value)} inputMode={inputMode} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-[#3282c0]" placeholder={placeholder}/></label>}
